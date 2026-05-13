@@ -58,7 +58,7 @@ export default function LoginForm() {
           {mode === 'login' ? 'Welcome back' : 'Create account'}
         </h1>
         <p className="text-sm mb-6" style={{ color: '#6B6B74' }}>
-          {mode === 'login' ? 'Sign in to your workspace' : 'Join your team's workspace'}
+          {mode === 'login' ? 'Sign in to your workspace' : "Join your team's workspace"}
         </p>
 
         <form onSubmit={submit} className="space-y-4">
