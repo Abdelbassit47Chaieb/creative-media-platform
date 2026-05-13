@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { kpiStore, teamStore } from '@/lib/store'
+import { kpiStore, teamStore } from '@/lib/db'
 import { KPIReport, KPI_BENCHMARKS, DIAGNOSTIC_SCENARIOS, PRODUCTS, DiagnosticScenario } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { Plus, Trash2, TrendingUp, Trophy } from 'lucide-react'
@@ -75,20 +75,21 @@ export default function KPIPage() {
   const [form, setForm] = useState(emptyKPI())
   const [filter, setFilter] = useState('All')
 
-  const reload = () => {
-    setKpis(kpiStore.getAll())
-    setBuyers(teamStore.getAll().filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
+  const reload = async () => {
+    const [all, team] = await Promise.all([kpiStore.getAll(), teamStore.getAll()])
+    setKpis(all)
+    setBuyers(team.filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
   }
   useEffect(() => { reload() }, [])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.creativeFile) { toast.error('Creative File is required.'); return }
     const scenario = diagnoseBenchmarks(form)
-    kpiStore.add({ ...form, scenario })
+    await kpiStore.add({ ...form, scenario })
     toast.success(`Saved. Diagnosis: Scenario ${scenario} — ${DIAGNOSTIC_SCENARIOS[scenario].label}`)
     setOpen(false); setForm(emptyKPI()); reload()
   }
-  const handleDelete = (id: string) => { kpiStore.delete(id); toast.success('Report deleted.'); reload() }
+  const handleDelete = async (id: string) => { await kpiStore.delete(id); toast.success('Report deleted.'); reload() }
 
   const filtered = filter === 'All' ? kpis : kpis.filter(k => k.mediaBuyer === filter)
   const winners = kpis.filter(k => k.scenario === 'G')

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { launchStore, teamStore } from '@/lib/store'
+import { launchStore, teamStore } from '@/lib/db'
 import { LaunchCard, PRODUCTS } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { Plus, Pencil, Trash2, Rocket, DollarSign, Calendar } from 'lucide-react'
@@ -44,24 +44,24 @@ export default function LaunchesPage() {
   const [form, setForm] = useState(emptyLaunch())
   const [filter, setFilter] = useState('All')
 
-  const reload = () => {
-    setLaunches(launchStore.getAll())
-    const all = teamStore.getAll()
-    setBuyers(all.filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
+  const reload = async () => {
+    const [all, team] = await Promise.all([launchStore.getAll(), teamStore.getAll()])
+    setLaunches(all)
+    setBuyers(team.filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
   }
   useEffect(() => { reload() }, [])
 
   const openNew = () => { setEditing(null); setForm(emptyLaunch(buyers[0] ?? '')); setOpen(true) }
   const openEdit = (l: LaunchCard) => { setEditing(l); setForm({ ...l }); setOpen(true) }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.creativeFiles || !form.launchDate) { toast.error('Creative Files and Launch Date are required.'); return }
-    if (editing) { launchStore.update(editing.id, form); toast.success('Launch Card updated.') }
-    else { launchStore.add(form); toast.success('Launch Card created.') }
+    if (editing) { await launchStore.update(editing.id, form); toast.success('Launch Card updated.') }
+    else { await launchStore.add(form); toast.success('Launch Card created.') }
     setOpen(false); reload()
   }
 
-  const handleDelete = (id: string) => { launchStore.delete(id); toast.success('Launch Card deleted.'); reload() }
+  const handleDelete = async (id: string) => { await launchStore.delete(id); toast.success('Launch Card deleted.'); reload() }
 
   const filtered = filter === 'All' ? launches : launches.filter(l => l.status === filter)
   const totalBudget = launches.filter(l => l.status === 'Live').reduce((s, l) => s + l.dailyBudget, 0)

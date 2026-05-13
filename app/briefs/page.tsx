@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { briefStore, teamStore } from '@/lib/store'
+import { briefStore, teamStore } from '@/lib/db'
 import { CreativeBrief, BriefStatus, CreativeFormat, PRODUCTS } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { Plus, Pencil, Trash2, FileText } from 'lucide-react'
@@ -40,25 +40,25 @@ export default function BriefsPage() {
   const [form, setForm] = useState(empty([], []))
   const [filter, setFilter] = useState<string>('All')
 
-  const reload = () => {
-    setBriefs(briefStore.getAll())
-    const all = teamStore.getAll()
-    setTeamNames(all.map(m => m.name))
-    setBuyerNames(all.filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
+  const reload = async () => {
+    const [all, team] = await Promise.all([briefStore.getAll(), teamStore.getAll()])
+    setBriefs(all)
+    setTeamNames(team.map(m => m.name))
+    setBuyerNames(team.filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
   }
   useEffect(() => { reload() }, [])
 
   const openNew = () => { setEditing(null); setForm(empty(teamNames, buyerNames)); setOpen(true) }
   const openEdit = (b: CreativeBrief) => { setEditing(b); setForm({ ...b }); setOpen(true) }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.marketingAngle || !form.dueDate) { toast.error('Marketing Angle and Due Date are required.'); return }
-    if (editing) { briefStore.update(editing.id, form); toast.success('Brief updated.') }
-    else { briefStore.add(form); toast.success('Brief created.') }
+    if (editing) { await briefStore.update(editing.id, form); toast.success('Brief updated.') }
+    else { await briefStore.add(form); toast.success('Brief created.') }
     setOpen(false); reload()
   }
 
-  const handleDelete = (id: string) => { briefStore.delete(id); toast.success('Brief deleted.'); reload() }
+  const handleDelete = async (id: string) => { await briefStore.delete(id); toast.success('Brief deleted.'); reload() }
   const filtered = filter === 'All' ? briefs : briefs.filter(b => b.status === filter)
 
   return (

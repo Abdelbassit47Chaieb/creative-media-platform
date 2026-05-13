@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { reportStore, teamStore } from '@/lib/store'
+import { reportStore, teamStore } from '@/lib/db'
 import { WeeklyReport, PRODUCTS } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { Plus, Trash2, ClipboardList, ChevronDown, ChevronUp } from 'lucide-react'
@@ -34,20 +34,21 @@ export default function ReportsPage() {
   const [form, setForm] = useState(emptyReport())
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  const reload = () => {
-    setReports(reportStore.getAll())
-    setBuyers(teamStore.getAll().filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
+  const reload = async () => {
+    const [all, team] = await Promise.all([reportStore.getAll(), teamStore.getAll()])
+    setReports(all)
+    setBuyers(team.filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
   }
   useEffect(() => { reload() }, [])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.weekEnding || !form.mediaBuyer) { toast.error('Week Ending and Media Buyer are required.'); return }
-    reportStore.add(form)
+    await reportStore.add(form)
     toast.success('Weekly report submitted.')
     setOpen(false); setForm(emptyReport()); reload()
   }
 
-  const handleDelete = (id: string) => { reportStore.delete(id); toast.success('Report deleted.'); reload() }
+  const handleDelete = async (id: string) => { await reportStore.delete(id); toast.success('Report deleted.'); reload() }
 
   const s = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }))

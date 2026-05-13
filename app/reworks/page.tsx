@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { reworkStore, teamStore } from '@/lib/store'
+import { reworkStore, teamStore } from '@/lib/db'
 import { ReworkNotice, Priority } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { Plus, Pencil, Trash2, RefreshCw, AlertTriangle } from 'lucide-react'
@@ -44,26 +44,27 @@ export default function ReworksPage() {
   const [form, setForm] = useState(emptyRework())
   const [filter, setFilter] = useState('All')
 
-  const reload = () => {
-    setReworks(reworkStore.getAll())
-    setBuyers(teamStore.getAll().filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
+  const reload = async () => {
+    const [all, team] = await Promise.all([reworkStore.getAll(), teamStore.getAll()])
+    setReworks(all)
+    setBuyers(team.filter(m => m.jobTitle.toLowerCase().includes('media buyer') || m.role === 'Admin' || m.role === 'Chief').map(m => m.name))
   }
   useEffect(() => { reload() }, [])
 
   const openNew = () => { setEditing(null); setForm(emptyRework(buyers[0] ?? '')); setOpen(true) }
   const openEdit = (r: ReworkNotice) => { setEditing(r); setForm({ ...r }); setOpen(true) }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.creativeFileName || !form.reworkReason) {
       toast.error('Creative File Name and Rework Reason are required.')
       return
     }
-    if (editing) { reworkStore.update(editing.id, form); toast.success('Rework notice updated.') }
-    else { reworkStore.add(form); toast.success('Rework notice sent to creative team.') }
+    if (editing) { await reworkStore.update(editing.id, form); toast.success('Rework notice updated.') }
+    else { await reworkStore.add(form); toast.success('Rework notice sent to creative team.') }
     setOpen(false); reload()
   }
 
-  const handleDelete = (id: string) => { reworkStore.delete(id); toast.success('Rework notice deleted.'); reload() }
+  const handleDelete = async (id: string) => { await reworkStore.delete(id); toast.success('Rework notice deleted.'); reload() }
 
   const filtered = filter === 'All' ? reworks : reworks.filter(r => r.status === filter)
   const urgent = reworks.filter(r => r.priority === 'Urgent' && r.status === 'Open').length

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { teamStore } from '@/lib/store'
+import { teamStore } from '@/lib/db'
 import { TeamMember, MemberRole, PageKey, ActionKey, ROLE_DEFAULTS, AVATAR_COLORS } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { Plus, Pencil, Trash2, Users, Shield, ChevronDown, ChevronUp, Check } from 'lucide-react'
@@ -60,7 +60,7 @@ export default function TeamPage() {
   const [form, setForm] = useState(emptyMember())
   const [expandedPerms, setExpandedPerms] = useState<string | null>(null)
 
-  const reload = () => setMembers(teamStore.getAll())
+  const reload = async () => { const all = await teamStore.getAll(); setMembers(all) }
   useEffect(() => { reload() }, [])
 
   const isAdmin = user?.role === 'Admin'
@@ -90,19 +90,19 @@ export default function TeamPage() {
   const hasAction = (pageKey: PageKey, action: ActionKey) =>
     form.permissions.find(p => p.page === pageKey)?.actions.includes(action) ?? false
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.jobTitle.trim()) {
       toast.error('Name, email and job title are required.')
       return
     }
-    if (editing) { teamStore.update(editing.id, form); toast.success('Member updated.') }
-    else { teamStore.add(form); toast.success('Member added.') }
+    if (editing) { await teamStore.update(editing.id, form); toast.success('Member updated.') }
+    else { toast.info('To add members, have them sign up and then update their role here.') }
     setOpen(false); reload()
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (id === user?.id) { toast.error("You can't delete yourself."); return }
-    teamStore.delete(id); toast.success('Member removed.'); reload()
+    await teamStore.delete(id); toast.success('Member removed.'); reload()
   }
 
   const ensurePerms = () => {

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { briefStore, launchStore, reworkStore, kpiStore } from '@/lib/store'
+import { briefStore, launchStore, reworkStore, kpiStore } from '@/lib/db'
 import { CreativeBrief, LaunchCard, ReworkNotice, KPIReport } from '@/lib/types'
 import { FileText, Rocket, RefreshCw, TrendingUp, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
@@ -79,10 +79,10 @@ export default function Dashboard() {
   const [kpis, setKpis] = useState<KPIReport[]>([])
 
   useEffect(() => {
-    setBriefs(briefStore.getAll())
-    setLaunches(launchStore.getAll())
-    setReworks(reworkStore.getAll())
-    setKpis(kpiStore.getAll())
+    briefStore.getAll().then(setBriefs)
+    launchStore.getAll().then(setLaunches)
+    reworkStore.getAll().then(setReworks)
+    kpiStore.getAll().then(setKpis)
   }, [])
 
   const liveLaunches  = launches.filter(l => l.status === 'Live').length

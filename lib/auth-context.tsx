@@ -1,41 +1,90 @@
 'use client'
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { supabase } from './supabase'
+import { fromProfile } from './db'
 import { TeamMember } from './types'
-import { activeUserStore, teamStore } from './store'
 
 interface AuthCtx {
   user: TeamMember | null
-  setUser: (m: TeamMember) => void
+  session: Session | null
+  loading: boolean
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
+  signOut: () => Promise<void>
+  refreshUser: () => Promise<void>
   can: (page: string, action: string) => boolean
   canView: (page: string) => boolean
 }
 
 const Ctx = createContext<AuthCtx>({
-  user: null,
-  setUser: () => {},
+  user: null, session: null, loading: true,
+  signIn: async () => ({ error: null }),
+  signUp: async () => ({ error: null }),
+  signOut: async () => {},
+  refreshUser: async () => {},
   can: () => false,
   canView: () => false,
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<TeamMember | null>(null)
+  const [user, setUser]       = useState<TeamMember | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  async function loadProfile(userId: string) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+    if (data) setUser(fromProfile(data))
+  }
 
   useEffect(() => {
-    // hydrate from localStorage then keep in sync with team changes
-    const stored = activeUserStore.get()
-    if (stored) {
-      // refresh from team store in case permissions were updated
-      const fresh = teamStore.getAll().find(m => m.id === stored.id)
-      setUserState(fresh ?? stored)
-    } else {
-      const first = teamStore.getAll()[0]
-      if (first) { activeUserStore.set(first); setUserState(first) }
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session?.user) {
+        loadProfile(session.user.id).finally(() => setLoading(false))
+      } else {
+        setLoading(false)
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session)
+      if (session?.user) {
+        await loadProfile(session.user.id)
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const setUser = (m: TeamMember) => {
-    activeUserStore.set(m)
-    setUserState(m)
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    return { error: error?.message ?? null }
+  }
+
+  const signUp = async (email: string, password: string, name: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    })
+    return { error: error?.message ?? null }
+  }
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setSession(null)
+  }
+
+  const refreshUser = async () => {
+    if (session?.user) await loadProfile(session.user.id)
   }
 
   const can = (page: string, action: string) => {
@@ -46,9 +95,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const canView = (page: string) => can(page, 'view')
 
-  return <Ctx.Provider value={{ user, setUser, can, canView }}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={{ user, session, loading, signIn, signUp, signOut, refreshUser, can, canView }}>
+      {children}
+    </Ctx.Provider>
+  )
 }
 
-export function useAuth() {
-  return useContext(Ctx)
-}
+export function useAuth() { return useContext(Ctx) }
